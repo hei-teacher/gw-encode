@@ -157,7 +157,7 @@ implementation 'org.xhtmlrenderer:flying-saucer-pdf:9.1.22'
 implementation 'ognl:ognl:3.2.21'
 implementation 'org.apache.pdfbox:pdfbox:2.0.30'
 implementation 'com.ibm.icu:icu4j:77.1'
- implementation 'ch.qos.logback:logback-classic:1.4.11'
+implementation 'org.springframework.boot:spring-boot-starter-oauth2-client'
 
 
 }
