@@ -10,24 +10,25 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.SimpleUrlAuthenticationFailureHandler;
+import org.springframework.security.web.authentication.www.BasicAuthenticationFilter;
 
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
 
   private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
-  private final LoggingAuthorizationRequestResolver loggingResolver;
   private final String casdoorClientId;
   private final String casdoorLogoutUrl;
+  private final StateFixFilter stateFixFilter;
 
   public SecurityConfig(
-      LoggingAuthorizationRequestResolver loggingResolver,
       @Value("${spring.security.oauth2.client.registration.casdoor.clientid}")
           String casdoorClientId,
-      @Value("${casdoor.logout.url}") String casdoorLogoutUrl) {
-    this.loggingResolver = loggingResolver;
+      @Value("${casdoor.logout.url}") String casdoorLogoutUrl,
+      StateFixFilter stateFixFilter) {
     this.casdoorClientId = casdoorClientId;
     this.casdoorLogoutUrl = casdoorLogoutUrl;
+    this.stateFixFilter = stateFixFilter;
   }
 
   @Bean
@@ -42,16 +43,12 @@ public class SecurityConfig {
                     .permitAll()
                     .anyRequest()
                     .authenticated())
+        .addFilterBefore(stateFixFilter, BasicAuthenticationFilter.class)
         .oauth2Login(
             oauth2 ->
                 oauth2
-                    .authorizationEndpoint(
-                        auth -> auth.authorizationRequestResolver(loggingResolver))
                     .successHandler(
                         (request, response, authentication) -> {
-                          String stateFromCallback = request.getParameter("state");
-                          log.info("🔹 State received in callback = {}", stateFromCallback);
-
                           log.info("✅ OAuth2 login SUCCESS");
                           log.info("User: {}", authentication.getName());
                           log.info("Authorities: {}", authentication.getAuthorities());
@@ -59,8 +56,6 @@ public class SecurityConfig {
                         })
                     .failureHandler(
                         (request, response, exception) -> {
-                          String stateFromCallback = request.getParameter("state");
-                          log.info("🔹 State received in callback = {}", stateFromCallback);
                           log.error("❌ OAuth2 login FAILURE");
                           log.error("Message: {}", exception.getMessage());
                           new SimpleUrlAuthenticationFailureHandler("/oauth2/authorization/casdoor")
