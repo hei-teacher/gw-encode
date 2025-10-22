@@ -1,5 +1,7 @@
 package com.example.demo.endpoint.rest.security;
 
+import static org.springframework.core.Ordered.HIGHEST_PRECEDENCE;
+
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
@@ -8,14 +10,13 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.HashMap;
 import java.util.Map;
-import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
-@Order(Ordered.HIGHEST_PRECEDENCE)
-public class StateFixFilter extends OncePerRequestFilter {
+@Order(HIGHEST_PRECEDENCE)
+public class Oauth2StatePaddingFixFilter extends OncePerRequestFilter {
 
   @Override
   protected void doFilterInternal(
@@ -30,27 +31,7 @@ public class StateFixFilter extends OncePerRequestFilter {
 
       if (!fixedState.equals(state)) {
 
-        var wrappedRequest =
-            new HttpServletRequestWrapper(request) {
-              @Override
-              public String getParameter(String name) {
-                if ("state".equals(name)) return fixedState;
-                return super.getParameter(name);
-              }
-
-              @Override
-              public Map<String, String[]> getParameterMap() {
-                var map = new HashMap<>(super.getParameterMap());
-                map.put("state", new String[] {fixedState});
-                return map;
-              }
-
-              @Override
-              public String[] getParameterValues(String name) {
-                if ("state".equals(name)) return new String[] {fixedState};
-                return super.getParameterValues(name);
-              }
-            };
+        var wrappedRequest = new FixedStateRequestWrapper(request, fixedState);
 
         filterChain.doFilter(wrappedRequest, response);
         return;
@@ -66,5 +47,33 @@ public class StateFixFilter extends OncePerRequestFilter {
     if (mod == 0) return s;
     int pad = 4 - mod;
     return s + "=".repeat(pad);
+  }
+
+  private static class FixedStateRequestWrapper extends HttpServletRequestWrapper {
+    private final String fixedState;
+
+    public FixedStateRequestWrapper(HttpServletRequest request, String fixedState) {
+      super(request);
+      this.fixedState = fixedState;
+    }
+
+    @Override
+    public String getParameter(String name) {
+      if ("state".equals(name)) return fixedState;
+      return super.getParameter(name);
+    }
+
+    @Override
+    public Map<String, String[]> getParameterMap() {
+      var map = new HashMap<>(super.getParameterMap());
+      map.put("state", new String[] {fixedState});
+      return map;
+    }
+
+    @Override
+    public String[] getParameterValues(String name) {
+      if ("state".equals(name)) return new String[] {fixedState};
+      return super.getParameterValues(name);
+    }
   }
 }

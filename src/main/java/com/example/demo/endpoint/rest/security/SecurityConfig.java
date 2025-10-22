@@ -1,7 +1,6 @@
 package com.example.demo.endpoint.rest.security;
 
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -14,36 +13,36 @@ import org.springframework.security.web.authentication.www.BasicAuthenticationFi
 
 @Configuration
 @EnableWebSecurity
+@Slf4j
 public class SecurityConfig {
 
-  private static final Logger log = LoggerFactory.getLogger(SecurityConfig.class);
   private final String casdoorClientId;
   private final String casdoorLogoutUrl;
-  private final StateFixFilter stateFixFilter;
+  private final Oauth2StatePaddingFixFilter statePaddingFixFilter;
 
   public SecurityConfig(
       @Value("${spring.security.oauth2.client.registration.casdoor.clientid}")
           String casdoorClientId,
       @Value("${casdoor.logout.url}") String casdoorLogoutUrl,
-      StateFixFilter stateFixFilter) {
+      Oauth2StatePaddingFixFilter statePaddingFixFilter) {
     this.casdoorClientId = casdoorClientId;
     this.casdoorLogoutUrl = casdoorLogoutUrl;
-    this.stateFixFilter = stateFixFilter;
+    this.statePaddingFixFilter = statePaddingFixFilter;
   }
 
   @Bean
   public SecurityFilterChain filterChain(HttpSecurity http) throws Exception {
     http.csrf(Customizer.withDefaults())
         .authorizeHttpRequests(
-            authz ->
-                authz
+            authorize ->
+                authorize
                     .requestMatchers("/casdoor-logout")
                     .permitAll()
                     .requestMatchers("/")
                     .permitAll()
                     .anyRequest()
                     .authenticated())
-        .addFilterBefore(stateFixFilter, BasicAuthenticationFilter.class)
+        .addFilterBefore(statePaddingFixFilter, BasicAuthenticationFilter.class)
         .oauth2Login(
             oauth2 ->
                 oauth2
