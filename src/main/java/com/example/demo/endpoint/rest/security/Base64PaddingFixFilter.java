@@ -8,9 +8,11 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletRequestWrapper;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
-import java.util.HashMap;
+import java.util.Arrays;
 import java.util.Map;
+import java.util.stream.Collectors;
 import org.springframework.core.annotation.Order;
+import org.springframework.lang.NonNull;
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
 
@@ -20,60 +22,71 @@ public class Base64PaddingFixFilter extends OncePerRequestFilter {
 
   @Override
   protected void doFilterInternal(
-      HttpServletRequest request, HttpServletResponse response, FilterChain filterChain)
+      HttpServletRequest request,
+      @NonNull HttpServletResponse response,
+      @NonNull FilterChain filterChain)
       throws ServletException, IOException {
 
-    var state = request.getParameter("state");
-    var path = request.getRequestURI();
+    var originalParams = request.getParameterMap();
 
-    if (state != null && path.contains("/login/oauth2/code/")) {
-      var fixedState = padBase64(state);
+    var fixedParams =
+        originalParams.entrySet().stream()
+            .collect(
+                Collectors.toMap(
+                    Map.Entry::getKey,
+                    e ->
+                        Arrays.stream(e.getValue())
+                            .map(Base64PaddingFixFilter::padBase64IfNeeded)
+                            .toArray(String[]::new)));
 
-      if (!fixedState.equals(state)) {
+    var hasModifiedParams = !fixedParams.equals(originalParams);
 
-        var wrappedRequest = new FixedStateRequestWrapper(request, fixedState);
-
-        filterChain.doFilter(wrappedRequest, response);
-        return;
-      }
+    if (hasModifiedParams) {
+      var wrapped = new FixedParamsRequestWrapper(request, fixedParams);
+      filterChain.doFilter(wrapped, response);
+    } else {
+      filterChain.doFilter(request, response);
     }
-
-    filterChain.doFilter(request, response);
   }
 
-  private static String padBase64(String s) {
+  private static String padBase64IfNeeded(String s) {
     if (s == null) return null;
-    int mod = s.length() % 4;
+    var len = s.length();
+    if (len == 0) return s;
+
+    var base64UrlPattern = "^[A-Za-z0-9_\\-]+=*$";
+
+    if (!s.matches(base64UrlPattern)) return s;
+
+    var mod = len % 4;
     if (mod == 0) return s;
-    int pad = 4 - mod;
+    var pad = 4 - mod;
     return s + "=".repeat(pad);
   }
 
-  private static class FixedStateRequestWrapper extends HttpServletRequestWrapper {
-    private final String fixedState;
+  private static class FixedParamsRequestWrapper extends HttpServletRequestWrapper {
+    private final Map<String, String[]> fixedParams;
 
-    public FixedStateRequestWrapper(HttpServletRequest request, String fixedState) {
+    public FixedParamsRequestWrapper(
+        HttpServletRequest request, Map<String, String[]> fixedParams) {
       super(request);
-      this.fixedState = fixedState;
+      this.fixedParams = fixedParams;
     }
 
     @Override
     public String getParameter(String name) {
-      if ("state".equals(name)) return fixedState;
-      return super.getParameter(name);
+      var values = fixedParams.get(name);
+      return (values != null && values.length > 0) ? values[0] : null;
     }
 
     @Override
     public Map<String, String[]> getParameterMap() {
-      var map = new HashMap<>(super.getParameterMap());
-      map.put("state", new String[] {fixedState});
-      return map;
+      return fixedParams;
     }
 
     @Override
     public String[] getParameterValues(String name) {
-      if ("state".equals(name)) return new String[] {fixedState};
-      return super.getParameterValues(name);
+      return fixedParams.get(name);
     }
   }
 }
