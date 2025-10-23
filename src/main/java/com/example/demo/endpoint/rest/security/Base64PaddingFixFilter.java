@@ -16,7 +16,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
 @Order(HIGHEST_PRECEDENCE)
-public class Oauth2StatePaddingFixFilter extends OncePerRequestFilter {
+public class Base64PaddingFixFilter extends OncePerRequestFilter {
 
   @Override
   protected void doFilterInternal(

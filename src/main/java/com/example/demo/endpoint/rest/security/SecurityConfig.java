@@ -18,13 +18,13 @@ public class SecurityConfig {
 
   private final String casdoorClientId;
   private final String casdoorLogoutUrl;
-  private final Oauth2StatePaddingFixFilter statePaddingFixFilter;
+  private final Base64PaddingFixFilter statePaddingFixFilter;
 
   public SecurityConfig(
       @Value("${spring.security.oauth2.client.registration.casdoor.clientid}")
           String casdoorClientId,
       @Value("${casdoor.logout.url}") String casdoorLogoutUrl,
-      Oauth2StatePaddingFixFilter statePaddingFixFilter) {
+      Base64PaddingFixFilter statePaddingFixFilter) {
     this.casdoorClientId = casdoorClientId;
     this.casdoorLogoutUrl = casdoorLogoutUrl;
     this.statePaddingFixFilter = statePaddingFixFilter;
