@@ -1,5 +1,7 @@
 package com.example.demo.endpoint.rest.security;
 
+import java.util.Arrays;
+import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -57,6 +59,16 @@ public class SecurityConfig {
                         (request, response, exception) -> {
                           log.error("❌ OAuth2 login FAILURE");
                           log.error("Message: {}", exception.getMessage());
+
+                          Map<String, String[]> parameterMap = request.getParameterMap();
+                          if (parameterMap.isEmpty()) {
+                            log.warn("⚠️ No parameters found in the request.");
+                          } else {
+                            parameterMap.forEach(
+                                (key, values) ->
+                                    log.info("Parameter [{}] = {}", key, Arrays.toString(values)));
+                          }
+
                           new SimpleUrlAuthenticationFailureHandler("/oauth2/authorization/casdoor")
                               .onAuthenticationFailure(request, response, exception);
                           log.info("🔄 Forced redirect to /oauth2/authorization/casdoor executed");
