@@ -8,6 +8,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
+import java.util.Base64;
 import java.util.Map;
 import java.util.stream.Collectors;
 import org.springframework.core.annotation.Order;
@@ -40,17 +41,25 @@ public class Base64PaddingFixFilter extends OncePerRequestFilter {
   }
 
   private static String padBase64IfNeeded(String s) {
-    if (s == null) return null;
-    int len = s.length();
-    if (len == 0) return s;
+    if (s == null || s.isEmpty()) return s;
 
     String base64UrlPattern = "^[A-Za-z0-9_\\-]+=*$";
     if (!s.matches(base64UrlPattern)) return s;
 
-    int mod = len % 4;
+    var mod = s.length() % 4;
     if (mod == 0) return s;
 
-    int pad = 4 - mod;
-    return s + "=".repeat(pad);
+    int padLength = 4 - mod;
+
+    try {
+      // Attempt to decode the string with added padding to verify
+      // that it is a valid incomplete Base64 string.
+      // If decoding fails (IllegalArgumentException), it means the string
+      // is not valid Base64 and should not be modified.
+      Base64.getUrlDecoder().decode(s + "=".repeat(padLength));
+      return s + "=".repeat(padLength);
+    } catch (IllegalArgumentException e) {
+      return s;
+    }
   }
 }
