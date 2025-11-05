@@ -35,21 +35,53 @@ class Base64PaddingFixFilterTest {
   }
 
   @Test
-  void should_add_padding_to_base64_without_padding() throws ServletException, IOException {
-    when(request.getParameterMap()).thenReturn(Map.of("state", new String[] {"abc"}));
+  void should_add_padding_to_valid_base64_without_padding() throws ServletException, IOException {
+    when(request.getParameterMap()).thenReturn(Map.of("state", new String[] {"TWE"}));
 
     var wrappedRequest = runFilterAndCapture();
 
-    assertEquals("abc=", wrappedRequest.getParameter("state"));
+    assertEquals("TWE=", wrappedRequest.getParameter("state"));
   }
 
   @Test
   void should_not_modify_base64_with_valid_padding() throws ServletException, IOException {
-    when(request.getParameterMap()).thenReturn(Map.of("state", new String[] {"abc="}));
+    when(request.getParameterMap()).thenReturn(Map.of("state", new String[] {"TWE="}));
 
     var wrappedRequest = runFilterAndCapture();
 
-    assertEquals("abc=", wrappedRequest.getParameter("state"));
+    assertEquals("TWE=", wrappedRequest.getParameter("state"));
+  }
+
+  @Test
+  void should_not_modify_invalid_base64_values() throws ServletException, IOException {
+    Map<String, String[]> params =
+        Map.of(
+            "name",
+            new String[] {"tsantanny"},
+            "greeting",
+            new String[] {"helloo"},
+            "number",
+            new String[] {"123"},
+            "uuid",
+            new String[] {"a1b2c3d"},
+            "symbol",
+            new String[] {"test-val"},
+            "email",
+            new String[] {"user@ex.com"},
+            "key",
+            new String[] {"abc"});
+
+    when(request.getParameterMap()).thenReturn(params);
+
+    var wrappedRequest = runFilterAndCapture();
+
+    assertEquals("tsantanny", wrappedRequest.getParameter("name"));
+    assertEquals("helloo", wrappedRequest.getParameter("greeting"));
+    assertEquals("123", wrappedRequest.getParameter("number"));
+    assertEquals("a1b2c3d", wrappedRequest.getParameter("uuid"));
+    assertEquals("test-val", wrappedRequest.getParameter("symbol"));
+    assertEquals("user@ex.com", wrappedRequest.getParameter("email"));
+    assertEquals("abc", wrappedRequest.getParameter("key"));
   }
 
   @Test
@@ -77,13 +109,13 @@ class Base64PaddingFixFilterTest {
     when(request.getParameterMap())
         .thenReturn(
             Map.of(
-                "param1", new String[] {"ab"},
+                "param1", new String[] {"TWE"},
                 "param2", new String[] {"TWFu"},
                 "param3", new String[] {"not@base64"}));
 
     var wrappedRequest = runFilterAndCapture();
 
-    assertEquals("ab==", wrappedRequest.getParameter("param1"));
+    assertEquals("TWE=", wrappedRequest.getParameter("param1"));
     assertEquals("TWFu", wrappedRequest.getParameter("param2"));
     assertEquals("not@base64", wrappedRequest.getParameter("param3"));
   }
