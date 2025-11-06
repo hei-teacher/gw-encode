@@ -10,6 +10,7 @@ import java.io.IOException;
 import java.util.Arrays;
 import java.util.Base64;
 import java.util.Map;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import org.springframework.core.annotation.Order;
 import org.springframework.stereotype.Component;
@@ -18,6 +19,7 @@ import org.springframework.web.filter.OncePerRequestFilter;
 @Component
 @Order(HIGHEST_PRECEDENCE)
 public class Base64PaddingFixFilter extends OncePerRequestFilter {
+  private static final Pattern BASE64_PATTERN = Pattern.compile("^[A-Za-z0-9+/]*={0,2}$");
 
   @Override
   protected void doFilterInternal(
@@ -40,26 +42,34 @@ public class Base64PaddingFixFilter extends OncePerRequestFilter {
     filterChain.doFilter(wrapped, response);
   }
 
-  private static String padBase64IfNeeded(String s) {
-    if (s == null || s.isEmpty()) return s;
+  public static boolean isProbablyBase64(String s) {
+    if (s == null || s.isEmpty()) return false;
 
-    String base64UrlPattern = "^[A-Za-z0-9_\\-]+=*$";
-    if (!s.matches(base64UrlPattern)) return s;
+    if (!BASE64_PATTERN.matcher(s).matches()) return false;
 
-    var mod = s.length() % 4;
-    if (mod == 0) return s;
-
-    int padLength = 4 - mod;
+    var padCount = (4 - (s.length() % 4)) % 4;
+    var padded = s + "=".repeat(padCount);
 
     try {
-      // Attempt to decode the string with added padding to verify
-      // that it is a valid incomplete Base64 string.
-      // If decoding fails (IllegalArgumentException), it means the string
-      // is not valid Base64 and should not be modified.
-      Base64.getUrlDecoder().decode(s + "=".repeat(padLength));
-      return s + "=".repeat(padLength);
+      var decoded = Base64.getDecoder().decode(padded);
+
+      var reencoded = Base64.getEncoder().encodeToString(decoded);
+
+      var origNorm = padded.replaceAll("=+$", "");
+      var reencNorm = reencoded.replaceAll("=+$", "");
+
+      return origNorm.equals(reencNorm);
     } catch (IllegalArgumentException e) {
-      return s;
+      return false;
     }
+  }
+
+  private static String padBase64IfNeeded(String s) {
+    if (s == null || s.isEmpty()) return s;
+    if (!isProbablyBase64(s)) return s;
+
+    var padCount = (4 - (s.length() % 4)) % 4;
+    if (padCount == 0) return s;
+    return s + "=".repeat(padCount);
   }
 }
